@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ResponsiveQA · Device & Breakpoint Tester</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <!-- ===================== TOP BAR ===================== -->
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-logo">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="2" y="3" width="20" height="14" rx="2"></rect>
+          <line x1="8" y1="21" x2="16" y2="21"></line>
+          <line x1="12" y1="17" x2="12" y2="21"></line>
+        </svg>
+      </div>
+      <div class="brand-text">
+        <span class="brand-name">Responsive<b>QA</b></span>
+        <span class="brand-sub">Device &amp; Breakpoint Tester</span>
+      </div>
+    </div>
+
+    <form class="url-form" id="urlForm">
+      <div class="url-input-wrap">
+        <svg class="url-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input type="text" id="urlInput" placeholder="Enter URL to test  e.g. http://localhost:3000" autocomplete="off" spellcheck="false" />
+      </div>
+      <button type="submit" class="btn btn-primary">Load</button>
+    </form>
+
+    <div class="topbar-actions">
+      <button class="icon-btn" id="reloadBtn" title="Reload frame">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+      </button>
+      <button class="icon-btn" id="themeBtn" title="Toggle theme">
+        <svg class="ico-moon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+        <svg class="ico-sun" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- ===================== TOOLBAR ===================== -->
+  <div class="toolbar">
+    <!-- Category pills -->
+    <div class="category-pills" id="categoryPills"></div>
+
+    <div class="toolbar-spacer"></div>
+
+    <!-- Size controls -->
+    <div class="size-controls">
+      <div class="dim-field">
+        <input type="number" id="widthInput" min="200" max="4000" />
+        <span class="dim-label">W</span>
+      </div>
+      <button class="icon-btn small" id="swapBtn" title="Rotate / swap orientation">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
+      </button>
+      <div class="dim-field">
+        <input type="number" id="heightInput" min="200" max="4000" />
+        <span class="dim-label">H</span>
+      </div>
+
+      <div class="divider"></div>
+
+      <!-- Zoom -->
+      <div class="zoom-control">
+        <button class="icon-btn small" id="zoomOut" title="Zoom out">−</button>
+        <button class="zoom-value" id="zoomValue" title="Reset zoom">100%</button>
+        <button class="icon-btn small" id="zoomIn" title="Zoom in">+</button>
+      </div>
+
+      <div class="divider"></div>
+
+      <button class="icon-btn small toggle-btn" id="rulerBtn" title="Toggle breakpoint ruler" data-on="true">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 2 22 8 8 22 2 16 16 2z"/><path d="M11 7l1 1M8 10l2 2M5 13l1 1"/></svg>
+      </button>
+      <button class="icon-btn small toggle-btn" id="galleryBtn" title="Gallery mode — view many devices at once">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+      </button>
+      <button class="icon-btn small toggle-btn" id="inspectBtn" title="Inspector — network, elements & XPath generator">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a4 4 0 0 0-5.6 5.6l-6.4 6.4a1.4 1.4 0 0 0 2 2l6.4-6.4a4 4 0 0 0 5.6-5.6l-2.3 2.3-2-2 2.3-2.3z"/></svg>
+      </button>
+
+      <div class="divider"></div>
+
+      <button class="proxy-toggle" id="proxyBtn" title="Bypass embedding blocks via the local proxy (requires proxy.js running)">
+        <span class="proxy-dot" id="proxyDot"></span>
+        <span id="proxyLabel">Proxy: Off</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- ===================== DEVICE STRIP ===================== -->
+  <div class="device-strip" id="deviceStrip"></div>
+
+  <!-- ===================== WORK AREA (stage + inspector) ===================== -->
+  <div class="workarea">
+  <!-- ===================== STAGE ===================== -->
+  <main class="stage" id="stage">
+    <!-- Breakpoint ruler -->
+    <div class="ruler" id="ruler"></div>
+
+    <!-- Single-device viewport -->
+    <div class="viewport-area" id="viewportArea">
+      <div class="device-frame" id="deviceFrame">
+        <div class="device-meta" id="deviceMeta">
+          <span id="metaName">Desktop</span>
+          <span class="meta-dim" id="metaDim">1280 × 800</span>
+          <span class="meta-bp" id="metaBp"></span>
+        </div>
+        <div class="device-shell" id="deviceShell">
+          <div class="notch" id="notch"></div>
+          <div class="frame-inner" id="frameInner">
+            <iframe id="previewFrame" title="Preview" src="about:blank"
+              sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox allow-modals allow-downloads"></iframe>
+            <div class="frame-placeholder" id="framePlaceholder">
+              <svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+              <p>Enter a URL above to start testing</p>
+              <span>Tip: works best with your own app or <code>localhost</code>. Some public sites block embedding.</span>
+              <button class="btn btn-primary" id="loadDemoBtn" style="margin-top:6px">Try the demo page</button>
+            </div>
+          </div>
+        </div>
+        <!-- Resize handles -->
+        <div class="handle handle-r" data-dir="r"></div>
+        <div class="handle handle-b" data-dir="b"></div>
+        <div class="handle handle-br" data-dir="br"></div>
+      </div>
+    </div>
+
+    <!-- Gallery -->
+    <div class="gallery" id="gallery" hidden></div>
+  </main>
+
+  <!-- ===================== INSPECTOR PANEL ===================== -->
+  <aside class="devpanel" id="devpanel" hidden>
+    <div class="dp-tabs">
+      <button class="dp-tab active" data-tab="network">Network</button>
+      <button class="dp-tab" data-tab="elements">Elements</button>
+      <button class="dp-tab" data-tab="selectors">Selectors</button>
+      <button class="dp-close" id="dpClose" title="Close inspector">✕</button>
+    </div>
+
+    <!-- NETWORK -->
+    <section class="dp-pane active" data-pane="network">
+      <div class="dp-toolbar">
+        <button class="rec-btn" id="netRecBtn"><span class="rec-dot"></span><span id="netRecLabel">Record: Off</span></button>
+        <button class="dp-btn" id="netClearBtn" title="Clear">Clear</button>
+        <input class="dp-filter" id="netFilter" placeholder="Filter URL…" />
+        <span class="dp-count" id="netCount">0</span>
+      </div>
+      <div class="net-head">
+        <span class="c-name">Name</span><span class="c-method">Method</span><span class="c-status">Status</span><span class="c-type">Type</span><span class="c-size">Size</span><span class="c-time">Time</span>
+      </div>
+      <div class="net-list" id="netList"></div>
+      <div class="dp-empty" id="netEmpty">Turn on <b>Record</b>, then interact with the page to capture <code>fetch</code> / <code>XHR</code> calls.<br><small>Requires Proxy: On (same-origin).</small></div>
+    </section>
+
+    <!-- ELEMENTS -->
+    <section class="dp-pane" data-pane="elements">
+      <div class="dp-toolbar">
+        <button class="rec-btn" id="inspPickBtn"><span class="rec-dot"></span><span id="inspPickLabel">Pick element: Off</span></button>
+        <button class="dp-btn" id="inspRefreshBtn" title="Reload DOM tree">Refresh</button>
+      </div>
+      <div class="dom-tree" id="domTree"></div>
+      <div class="dp-empty" id="domEmpty">Load a page (with Proxy: On) and click <b>Refresh</b>, or use <b>Pick element</b> to click directly in the preview.</div>
+    </section>
+
+    <!-- SELECTORS -->
+    <section class="dp-pane" data-pane="selectors">
+      <div class="sel-info" id="selInfo"></div>
+      <div class="sel-list" id="selList"></div>
+      <div class="dp-empty" id="selEmpty">Select an element (Elements tab → Pick element, or click a node) to generate XPaths &amp; CSS selectors.</div>
+    </section>
+  </aside>
+  </div>
+
+  <!-- ===================== STATUS BAR ===================== -->
+  <footer class="statusbar">
+    <div class="status-left">
+      <span class="status-chip" id="statusDim">1280 × 800</span>
+      <span class="status-chip muted" id="statusBp">Breakpoint: Desktop (≥1024px)</span>
+      <span class="status-chip muted" id="statusDpr"></span>
+    </div>
+    <div class="status-right">
+      <span class="status-hint">Drag the right / bottom edge to resize · Scroll inside the frame to test content</span>
+    </div>
+  </footer>
+
+  <script src="devices.js"></script>
+  <script src="app.js"></script>
+  <script src="inspector.js"></script>
+</body>
+</html>

@@ -1,0 +1,11 @@
+# OS / editor
+.DS_Store
+Thumbs.db
+*.log
+
+# Node (none currently, but in case)
+node_modules/
+npm-debug.log*
+
+# Local env
+.env

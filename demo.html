@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Demo App — Responsive Sample</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: system-ui, sans-serif; color: #1f2430; background: #f3f4f8; }
+  .bp-badge {
+    position: fixed; top: 10px; right: 10px; z-index: 99;
+    font: 600 11px/1 monospace; color: #fff; padding: 6px 10px; border-radius: 20px;
+    background: #10b981;
+  }
+  .layout {
+    display: grid; gap: 12px; padding: 12px; min-height: 100vh;
+    grid-template-columns: 1fr;
+    grid-template-areas: "header" "main" "widget" "stats" "footer";
+  }
+  .box { border-radius: 10px; padding: 16px; color: #fff; font-weight: 600; }
+  .header { grid-area: header; background: linear-gradient(90deg,#f97316,#e0379a); }
+  .sidebar { grid-area: sidebar; background: #f59e0b; display: none; }
+  .main   { grid-area: main; background: #8b5cf6; min-height: 160px; }
+  .widget { grid-area: widget; background: #ec4899; }
+  .stats  { grid-area: stats; background: #06b6d4; }
+  .footer { grid-area: footer; background: #6b7280; }
+  h2 { font-size: 15px; margin-bottom: 6px; }
+  p { font-weight: 400; font-size: 13px; opacity: .92; }
+
+  /* ≥480px : large mobile */
+  @media (min-width: 480px) {
+    .bp-badge { background: #ec4899; } .bp-badge::after { content: " ≥480 Lg-Mobile"; }
+  }
+  /* ≥768px : tablet — two columns */
+  @media (min-width: 768px) {
+    .bp-badge { background: #8b5cf6; }
+    .layout {
+      grid-template-columns: 1fr 1fr;
+      grid-template-areas: "header header" "main main" "widget stats" "footer footer";
+    }
+  }
+  /* ≥1024px : laptop — sidebar appears, three columns */
+  @media (min-width: 1024px) {
+    .bp-badge { background: #3b82f6; }
+    .sidebar { display: block; }
+    .layout {
+      grid-template-columns: 220px 1fr 1fr;
+      grid-template-areas:
+        "header header header"
+        "sidebar main   main"
+        "sidebar widget stats"
+        "footer footer footer";
+    }
+  }
+  /* ≥1280px : desktop */
+  @media (min-width: 1280px) {
+    .bp-badge { background: #10b981; }
+    .layout { max-width: 1400px; margin: 0 auto; padding: 24px; gap: 18px; }
+  }
+</style>
+</head>
+<body>
+  <div class="bp-badge" id="badge">base</div>
+  <div class="layout">
+    <div class="box header"><h2>Header</h2><p>Resize the frame and watch the grid reflow at each breakpoint.</p></div>
+    <div class="box sidebar"><h2>Sidebar</h2><p>Appears at ≥1024px</p></div>
+    <div class="box main"><h2>Main Content</h2><p>This region grows and the columns rearrange as the viewport widens.</p></div>
+    <div class="box widget"><h2>Widget</h2><p>Stacks on mobile, sits beside stats on tablet+.</p></div>
+    <div class="box stats"><h2>Statistics</h2><p>Live region for charts and KPIs.</p></div>
+    <div class="box footer"><h2>Footer</h2><p>Full-width across all breakpoints.</p></div>
+  </div>
+  <script>
+    const badge = document.getElementById('badge');
+    function upd() {
+      const w = window.innerWidth;
+      let label = 'base · <480 Mobile';
+      if (w >= 1280) label = '≥1280 Desktop';
+      else if (w >= 1024) label = '≥1024 Laptop';
+      else if (w >= 768) label = '≥768 Tablet';
+      else if (w >= 480) label = '≥480 Lg-Mobile';
+      badge.textContent = label + ' · ' + w + 'px';
+    }
+    upd(); window.addEventListener('resize', upd);
+  </script>
+</body>
+</html>
