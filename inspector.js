@@ -32,6 +32,29 @@
   inspectBtn.addEventListener("click", () => togglePanel());
   $("dpClose").addEventListener("click", () => togglePanel(false));
 
+  // drag the left edge to resize the panel
+  (function () {
+    const handle = $("dpResize");
+    let dragging = false;
+    try { const w = localStorage.getItem("rqa-dp-w"); if (w) devpanel.style.width = w + "px"; } catch (e) {}
+    handle.addEventListener("mousedown", (e) => {
+      dragging = true; e.preventDefault();
+      document.body.style.cursor = "ew-resize"; document.body.style.userSelect = "none";
+    });
+    window.addEventListener("mousemove", (e) => {
+      if (!dragging) return;
+      const w = Math.min(Math.max(window.innerWidth - e.clientX, 320), Math.min(1000, window.innerWidth - 360));
+      devpanel.style.width = w + "px";
+    });
+    window.addEventListener("mouseup", () => {
+      if (!dragging) return;
+      dragging = false;
+      document.body.style.cursor = ""; document.body.style.userSelect = "";
+      try { localStorage.setItem("rqa-dp-w", parseInt(devpanel.style.width, 10)); } catch (e) {}
+      window.dispatchEvent(new Event("resize"));
+    });
+  })();
+
   document.querySelectorAll(".dp-tab").forEach((t) => {
     t.addEventListener("click", () => switchTab(t.dataset.tab));
   });
@@ -58,7 +81,7 @@
   }
   setRecording(recording);
   netRecBtn.addEventListener("click", () => setRecording(!recording));
-  $("netClearBtn").addEventListener("click", () => { entries.clear(); netList.innerHTML = ""; updateNetEmpty(); });
+  $("netClearBtn").addEventListener("click", () => { entries.clear(); netList.innerHTML = ""; closeDetail(); updateNetEmpty(); });
   netFilter.addEventListener("input", applyNetFilter);
 
   function updateNetEmpty() {
@@ -89,8 +112,9 @@
         '<span class="c-method">' + esc(d.method || "") + "</span>" +
         '<span class="c-status">···</span><span class="c-type">' + esc(d.kind) + "</span>" +
         '<span class="c-size">—</span><span class="c-time">—</span>';
-      const rec = { row, url: d.url };
+      const rec = { row, url: d.url, data: { url: d.url, method: d.method, kind: d.kind } };
       entries.set(d.id, rec);
+      row.addEventListener("click", () => openDetail(d.id));
       netList.appendChild(row);
       applyNetFilter();
       updateNetEmpty();
@@ -98,6 +122,7 @@
     } else if (d.type === "end") {
       const rec = entries.get(d.id);
       if (!rec) return;
+      Object.assign(rec.data, d);
       const r = rec.row;
       r.classList.remove("pending");
       r.classList.toggle("err", !d.ok);
@@ -105,8 +130,73 @@
       r.querySelector(".c-type").textContent = typeFromCtype(d.ctype, r.querySelector(".c-type").textContent);
       r.querySelector(".c-size").textContent = fmtSize(d.size);
       r.querySelector(".c-time").textContent = fmtMs(d.dur);
+      if (detailId === d.id) renderDetail(); // live-update open detail
     }
   });
+
+  // ---- request detail drawer ----
+  const netDetail = $("netDetail"), ndBody = $("ndBody");
+  let detailId = null, ndTab = "general";
+  document.querySelectorAll(".nd-tab").forEach((t) =>
+    t.addEventListener("click", () => { ndTab = t.dataset.ndtab; document.querySelectorAll(".nd-tab").forEach((x) => x.classList.toggle("active", x === t)); renderDetail(); })
+  );
+  $("ndClose").addEventListener("click", closeDetail);
+  function closeDetail() {
+    netDetail.setAttribute("hidden", "");
+    if (detailId != null) { const rec = entries.get(detailId); if (rec) rec.row.classList.remove("active"); }
+    detailId = null;
+  }
+  function openDetail(id) {
+    if (detailId != null) { const p = entries.get(detailId); if (p) p.row.classList.remove("active"); }
+    detailId = id;
+    const rec = entries.get(id);
+    if (rec) rec.row.classList.add("active");
+    netDetail.removeAttribute("hidden");
+    renderDetail();
+  }
+  function kv(k, v, cls) { return '<div class="nd-kv"><span class="k">' + esc(k) + '</span><span class="v ' + (cls || "") + '">' + esc(v) + "</span></div>"; }
+  function headerBlock(title, obj) {
+    const keys = obj ? Object.keys(obj) : [];
+    let h = '<div class="nd-section-title">' + esc(title) + "</div>";
+    if (!keys.length) return h + '<div class="nd-empty">— none —</div>';
+    h += keys.map((k) => kv(k, obj[k])).join("");
+    return h;
+  }
+  function prettyBody(body, ctype) {
+    if (body == null || body === "") return '<div class="nd-empty">— empty —</div>';
+    let text = body;
+    if (/json/i.test(ctype || "")) { try { text = JSON.stringify(JSON.parse(body), null, 2); } catch (e) {} }
+    return '<button class="nd-copy">Copy</button><div class="nd-pre">' + esc(text) + "</div>";
+  }
+  function wireCopy(container, raw) {
+    const b = container.querySelector(".nd-copy");
+    if (b) b.addEventListener("click", () => { copy(raw); const o = b.textContent; b.textContent = "Copied!"; b.classList.add("done"); setTimeout(() => { b.textContent = o; b.classList.remove("done"); }, 1100); });
+  }
+  function renderDetail() {
+    const rec = detailId != null ? entries.get(detailId) : null;
+    if (!rec) { ndBody.innerHTML = '<div class="nd-empty">Select a request.</div>'; return; }
+    const d = rec.data;
+    if (ndTab === "general") {
+      const badge = d.status == null ? "" : '<span class="nd-badge ' + (d.ok ? "ok" : "err") + '">' + (d.status || "ERR") + " " + esc(d.statusText || "") + "</span>";
+      ndBody.innerHTML =
+        kv("Request URL", d.url, "full-url") +
+        kv("Method", d.method || "") +
+        '<div class="nd-kv"><span class="k">Status</span><span class="v">' + (badge || "pending") + "</span></div>" +
+        kv("Type", typeFromCtype(d.ctype, d.kind)) +
+        kv("Content-Type", d.ctype || "—") +
+        kv("Size", fmtSize(d.size)) +
+        kv("Time", fmtMs(d.dur)) +
+        (d.error ? kv("Error", d.error) : "");
+    } else if (ndTab === "request") {
+      ndBody.innerHTML = headerBlock("Request Headers", d.reqHeaders) +
+        '<div class="nd-section-title">Request Payload</div>' + prettyBody(d.reqBody, "");
+      wireCopy(ndBody, d.reqBody || "");
+    } else if (ndTab === "response") {
+      ndBody.innerHTML = headerBlock("Response Headers", d.resHeaders) +
+        '<div class="nd-section-title">Response Body</div>' + prettyBody(d.body, d.ctype);
+      wireCopy(ndBody, d.body || "");
+    }
+  }
 
   function applyNetFilter() {
     const q = netFilter.value.trim().toLowerCase();

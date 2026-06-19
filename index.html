@@ -140,6 +140,7 @@
 
   <!-- ===================== INSPECTOR PANEL ===================== -->
   <aside class="devpanel" id="devpanel" hidden>
+    <div class="dp-resize" id="dpResize" title="Drag to resize"></div>
     <div class="dp-tabs">
       <button class="dp-tab active" data-tab="network">Network</button>
       <button class="dp-tab" data-tab="elements">Elements</button>
@@ -160,6 +161,18 @@
       </div>
       <div class="net-list" id="netList"></div>
       <div class="dp-empty" id="netEmpty">Turn on <b>Record</b>, then interact with the page to capture <code>fetch</code> / <code>XHR</code> calls.<br><small>Requires Proxy: On (same-origin).</small></div>
+      <!-- request detail -->
+      <div class="net-detail" id="netDetail" hidden>
+        <div class="nd-head">
+          <div class="nd-tabs">
+            <button class="nd-tab active" data-ndtab="general">General</button>
+            <button class="nd-tab" data-ndtab="request">Request</button>
+            <button class="nd-tab" data-ndtab="response">Response</button>
+          </div>
+          <button class="nd-close" id="ndClose" title="Close">✕</button>
+        </div>
+        <div class="nd-body" id="ndBody"></div>
+      </div>
     </section>
 
     <!-- ELEMENTS -->

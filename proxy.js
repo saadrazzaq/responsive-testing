@@ -209,23 +209,58 @@ const SW_KILLER =
 // Network monitor injected into proxied pages. Self-gates on a localStorage
 // flag (shared with the tool because both are on localhost:8090) so it only
 // records when the tester turns "Record" on. Streams entries to the parent.
-const NET_MONITOR =
-  "<script>(function(){if(window.__rqaNet)return;window.__rqaNet=1;var s=0;" +
-  "function on(){try{return localStorage.getItem('rqa-net-on')==='1'}catch(e){return false}}" +
-  "function post(m){try{m.source='rqa-net';parent.postMessage(m,'*')}catch(e){}}" +
-  "var of=window.fetch;if(of){window.fetch=function(i,n){if(!on())return of.apply(this,arguments);" +
-  "var id=++s,t=performance.now();var u=(typeof i==='string')?i:(i&&i.url)||'';var m=(n&&n.method)||(i&&i.method)||'GET';" +
-  "post({type:'start',id:id,method:m,url:u,kind:'fetch'});" +
-  "return of.apply(this,arguments).then(function(r){var L=r.headers&&r.headers.get&&r.headers.get('content-length');" +
-  "post({type:'end',id:id,status:r.status,ok:r.ok,dur:performance.now()-t,size:L?+L:null,ctype:r.headers&&r.headers.get&&r.headers.get('content-type')});return r})" +
-  ".catch(function(e){post({type:'end',id:id,status:0,ok:false,dur:performance.now()-t,error:String(e)});throw e})}}" +
-  "var X=window.XMLHttpRequest;if(X){var op=X.prototype.open,sn=X.prototype.send;" +
-  "X.prototype.open=function(m,u){this.__r={m:m,u:u};return op.apply(this,arguments)};" +
-  "X.prototype.send=function(){var x=this;if(on()&&x.__r){var id=++s,t=performance.now();" +
-  "post({type:'start',id:id,method:x.__r.m,url:x.__r.u,kind:'xhr'});" +
-  "x.addEventListener('loadend',function(){post({type:'end',id:id,status:x.status,ok:(x.status>=200&&x.status<400),dur:performance.now()-t," +
-  "size:(x.responseText||'').length||null,ctype:x.getResponseHeader&&x.getResponseHeader('content-type')})})}return sn.apply(this,arguments)}}" +
-  "})();</script>";
+const NET_MONITOR = "<script>(" + (function () {
+  if (window.__rqaNet) return; window.__rqaNet = 1;
+  var s = 0, LIM = 80000;
+  function on() { try { return localStorage.getItem("rqa-net-on") === "1"; } catch (e) { return false; } }
+  function post(m) { try { m.source = "rqa-net"; parent.postMessage(m, "*"); } catch (e) {} }
+  function hdrs(h) { var o = {}; try { if (h && h.forEach) h.forEach(function (v, k) { o[k] = v; }); } catch (e) {} return o; }
+  function reqHdrs(init, input) {
+    var o = {}; try {
+      var h = (init && init.headers) || (input && input.headers);
+      if (h) { if (h.forEach) h.forEach(function (v, k) { o[k] = v; }); else if (h.length) for (var i = 0; i < h.length; i++) o[h[i][0]] = h[i][1]; else for (var k in h) o[k] = h[k]; }
+    } catch (e) {} return o;
+  }
+  function parseAll(str) { var o = {}; (str || "").trim().split(/\r?\n/).forEach(function (l) { var i = l.indexOf(":"); if (i > 0) o[l.slice(0, i).trim()] = l.slice(i + 1).trim(); }); return o; }
+  var of = window.fetch;
+  if (of) window.fetch = function (i, n) {
+    if (!on()) return of.apply(this, arguments);
+    var id = ++s, t = performance.now();
+    var u = typeof i === "string" ? i : (i && i.url) || "";
+    var m = (n && n.method) || (i && i.method) || "GET";
+    var rb = n && typeof n.body === "string" ? n.body.slice(0, LIM) : null;
+    var rh = reqHdrs(n, i);
+    post({ type: "start", id: id, method: m, url: u, kind: "fetch" });
+    return of.apply(this, arguments).then(function (r) {
+      var L = r.headers && r.headers.get && r.headers.get("content-length");
+      var ct = (r.headers && r.headers.get && r.headers.get("content-type")) || "";
+      var base = { type: "end", id: id, status: r.status, statusText: r.statusText, ok: r.ok, dur: performance.now() - t, size: L ? +L : null, ctype: ct, reqHeaders: rh, reqBody: rb, resHeaders: hdrs(r.headers) };
+      if (/json|text|xml|javascript|html/i.test(ct)) {
+        try { r.clone().text().then(function (tx) { base.body = tx.slice(0, LIM); post(base); }, function () { post(base); }); return r; } catch (e) {}
+      }
+      post(base); return r;
+    }, function (e) { post({ type: "end", id: id, status: 0, ok: false, dur: performance.now() - t, error: String(e), reqHeaders: rh, reqBody: rb }); throw e; });
+  };
+  var X = window.XMLHttpRequest;
+  if (X) {
+    var op = X.prototype.open, sn = X.prototype.send, sh = X.prototype.setRequestHeader;
+    X.prototype.open = function (m, u) { this.__r = { m: m, u: u, h: {} }; return op.apply(this, arguments); };
+    X.prototype.setRequestHeader = function (k, v) { if (this.__r) this.__r.h[k] = v; return sh.apply(this, arguments); };
+    X.prototype.send = function (b) {
+      var x = this;
+      if (on() && x.__r) {
+        var id = ++s, t = performance.now();
+        post({ type: "start", id: id, method: x.__r.m, url: x.__r.u, kind: "xhr" });
+        x.addEventListener("loadend", function () {
+          var ct = (x.getResponseHeader && x.getResponseHeader("content-type")) || "";
+          var body = null; try { body = (x.responseText || "").slice(0, LIM); } catch (e) {}
+          post({ type: "end", id: id, status: x.status, statusText: x.statusText, ok: x.status >= 200 && x.status < 400, dur: performance.now() - t, size: (x.responseText || "").length || null, ctype: ct, reqHeaders: x.__r.h, reqBody: typeof b === "string" ? b.slice(0, LIM) : null, resHeaders: parseAll(x.getAllResponseHeaders && x.getAllResponseHeaders()), body: body });
+        });
+      }
+      return sn.apply(this, arguments);
+    };
+  }
+}).toString() + ")();</script>";
 
 function injectClientScripts(html) {
   const inject = SW_KILLER + NET_MONITOR;
