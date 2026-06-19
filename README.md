@@ -36,14 +36,21 @@ already served from the tool's origin).
   and it only records while Record is on.
 - **Elements** — a live, collapsible DOM tree. Hover to highlight in the preview,
   or use **Pick element** to click any element directly in the page.
-- **Selectors (for automation testers)** — pick/select an element and instantly get
-  ready-to-use locators, each with a **uniqueness check** and one-click **Copy**:
-  - XPath by `id`, by test attributes (`data-testid`, `data-cy`, `name`, `aria-label`…),
-    by visible text, and an absolute XPath.
-  - CSS selectors (by id, tag+classes, and a full nth-of-type path).
+- **Selectors (for automation testers)** — SelectorsHub-style locator generation.
+  Pick/select an element and get a ranked list of **short, readable relative
+  XPaths**, with the most robust one marked **★ Recommended**:
+  - Relative XPath by `id`, by test attributes (`data-testid`, `data-cy`, `name`,
+    `aria-label`, `placeholder`, `title`…), by visible **text** (`text()` /
+    `contains()` / `normalize-space()`), and by **class** (exact + `contains`).
+  - **Attribute combinations** (`//tag[@a='x' and @b='y']`) and locators relative
+    to the nearest anchored ancestor (`//*[@id='…']//tag[…]`).
+  - An **indexed fallback** (`(//…)[n]`) that guarantees a unique match when a
+    readable locator matches several elements.
+  - Absolute XPath and CSS selectors as secondary options.
 
-A **unique** badge means the locator matches exactly one element (safe for
-automation); **N matches** warns it is ambiguous.
+Each candidate shows a **unique** badge (matches exactly one element — safe to
+automate) or **N matches** (ambiguous), and ranks by robustness so the cleanest,
+most stable locator is at the top with one-click **Copy**.
 
 ## Keyboard shortcuts
 

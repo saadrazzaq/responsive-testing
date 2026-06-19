@@ -371,29 +371,120 @@
     return parts.join(" > ");
   }
   function xpCount(doc, xp) { try { return doc.evaluate(xp, doc, null, XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null).snapshotLength; } catch (e) { return -1; } }
+  function xpIndexOf(doc, xp, node) {
+    try { const r = doc.evaluate(xp, doc, null, XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null); for (let i = 0; i < r.snapshotLength; i++) if (r.snapshotItem(i) === node) return i + 1; } catch (e) {}
+    return -1;
+  }
+  function ownText(node) { let t = ""; Array.prototype.forEach.call(node.childNodes || [], (n) => { if (n.nodeType === 3) t += n.nodeValue; }); return t.replace(/\s+/g, " ").trim(); }
+  function allText(node) { return (node.textContent || "").replace(/\s+/g, " ").trim(); }
+  function attrVal(node, a) { const v = node.getAttribute && node.getAttribute(a); return v != null && v !== "" && v.length <= 80 ? v : null; }
+
+  // attributes worth using in a locator, strongest first
+  const STABLE_ATTRS = ["id", "data-testid", "data-test", "data-cy", "data-qa", "data-automation-id", "data-id", "name", "aria-label", "placeholder", "title", "type", "role", "alt", "for", "href", "value"];
+  const GENERIC_CLASS = /^(active|clearfix|row|col(-\w+)?|container|wrapper|flex|grid|hidden|show|open|left|right|center|btn|button|item|list|d-\w+|mt-\d|mb-\d|px-\d|py-\d)$/i;
+
+  function nearestAnchor(node) {
+    for (let e = node.parentNode; e && e.nodeType === 1 && e.nodeName !== "HTML"; e = e.parentNode) {
+      if (e.id) return { attr: "id", val: e.id };
+      for (const a of ["data-testid", "data-test", "data-cy", "data-qa", "data-automation-id"]) {
+        const v = e.getAttribute && e.getAttribute(a);
+        if (v) return { attr: a, val: v };
+      }
+    }
+    return null;
+  }
+
+  function scoreCandidate(c) {
+    let s = 0;
+    if (c.count === 1) s += 120; else if (c.count > 1) s += Math.max(0, 14 - c.count); else s -= 60;
+    s += Math.max(0, 70 - c.value.length / 2);
+    if (/@id=/.test(c.value)) s += 45;
+    if (/@(data-testid|data-test|data-cy|data-qa|data-automation-id|data-id)=/.test(c.value)) s += 50;
+    if (/@name=/.test(c.value)) s += 32;
+    if (/@(placeholder|aria-label|title|for|alt)=/.test(c.value)) s += 20;
+    if (/text\(\)|normalize-space/.test(c.value)) s += 22;
+    if (/contains\(@class/.test(c.value)) s += 14;
+    if (/ and /.test(c.value)) s += 8;
+    s -= ((c.value.match(/\[\d+\]/g) || []).length) * 9;
+    if (/^\/html/.test(c.value)) s -= 50;
+    if (c.kind === "css") s -= 8;
+    return s;
+  }
 
   function buildCandidates(node, doc) {
     const out = [];
     const seen = {};
     function add(label, value, kind) {
       if (!value || seen[value]) return; seen[value] = 1;
-      const count = kind === "css" ? safe(() => doc.querySelectorAll(value).length) : xpCount(doc, value);
+      let count;
+      if (kind === "css") { try { count = doc.querySelectorAll(value).length; } catch (e) { count = -1; } }
+      else count = xpCount(doc, value);
       out.push({ label, value, kind, count });
     }
-    function safe(f) { try { return f(); } catch (e) { return -1; } }
     const t = tagName(node);
-    if (node.id) add("XPath · by id", "//*[@id=" + xpq(node.id) + "]", "xpath");
-    ["data-testid", "data-test", "data-cy", "data-qa", "data-automation-id", "name", "aria-label", "title", "placeholder"].forEach((a) => {
-      const v = node.getAttribute && node.getAttribute(a);
-      if (v) add("XPath · @" + a, "//" + t + "[@" + a + "=" + xpq(v) + "]", "xpath");
+
+    // 1) id
+    if (node.id) add("Rel XPath · id", "//" + t + "[@id=" + xpq(node.id) + "]", "xpath");
+
+    // 2) each stable attribute on its own
+    const present = [];
+    STABLE_ATTRS.forEach((a) => {
+      if (a === "id") return;
+      const v = attrVal(node, a);
+      if (v) { present.push([a, v]); add("Rel XPath · @" + a, "//" + t + "[@" + a + "=" + xpq(v) + "]", "xpath"); }
     });
-    const txt = (node.textContent || "").trim().replace(/\s+/g, " ");
-    if (txt && txt.length <= 40 && elementChildren(node).length === 0 && /^(a|button|label|span|li|h[1-6]|td|th|p|strong|em|option)$/i.test(t))
-      add("XPath · by text", "//" + t + "[normalize-space()=" + xpq(txt) + "]", "xpath");
-    add("XPath · absolute", absXPath(node), "xpath");
-    if (node.id) add("CSS · by id", "#" + cssEscape(node.id), "css");
+
+    // 3) text
+    const ot = ownText(node), at = allText(node);
+    if (ot && ot.length <= 60) {
+      add("Rel XPath · text", "//" + t + "[text()=" + xpq(ot) + "]", "xpath");
+      add("Rel XPath · contains text", "//" + t + "[contains(text()," + xpq(ot.length > 25 ? ot.slice(0, 25) : ot) + ")]", "xpath");
+    }
+    if (at && at !== ot && at.length <= 60) add("Rel XPath · normalize-space", "//" + t + "[normalize-space()=" + xpq(at) + "]", "xpath");
+
+    // 4) class
+    if (node.classList && node.classList.length) {
+      add("Rel XPath · class", "//" + t + "[@class=" + xpq(node.getAttribute("class")) + "]", "xpath");
+      const cls = Array.prototype.slice.call(node.classList);
+      const distinct = cls.filter((c) => !GENERIC_CLASS.test(c));
+      (distinct.length ? distinct : cls).slice(0, 2).forEach((c) =>
+        add("Rel XPath · contains class", "//" + t + "[contains(@class," + xpq(c) + ")]", "xpath"));
+    }
+
+    // 5) combinations
+    if (present.length >= 2)
+      add("Rel XPath · 2 attrs", "//" + t + "[@" + present[0][0] + "=" + xpq(present[0][1]) + " and @" + present[1][0] + "=" + xpq(present[1][1]) + "]", "xpath");
+    if (present.length >= 1 && ot && ot.length <= 40)
+      add("Rel XPath · attr + text", "//" + t + "[@" + present[0][0] + "=" + xpq(present[0][1]) + " and text()=" + xpq(ot) + "]", "xpath");
+
+    // 6) relative to nearest anchored ancestor
+    const anc = nearestAnchor(node);
+    if (anc) {
+      let local = t;
+      if (present[0]) local = t + "[@" + present[0][0] + "=" + xpq(present[0][1]) + "]";
+      else if (node.classList && node.classList.length) local = t + "[contains(@class," + xpq((Array.prototype.slice.call(node.classList).filter((c) => !GENERIC_CLASS.test(c))[0]) || node.classList[0]) + ")]";
+      else if (ot && ot.length <= 40) local = t + "[normalize-space()=" + xpq(ot) + "]";
+      add("Rel XPath · under @" + anc.attr, "//*[@" + anc.attr + "=" + xpq(anc.val) + "]//" + local, "xpath");
+    }
+
+    // 7) absolute fallback
+    add("Abs XPath", absXPath(node), "xpath");
+
+    // CSS (secondary)
+    if (node.id) add("CSS · id", "#" + cssEscape(node.id), "css");
     if (node.classList && node.classList.length) add("CSS · tag.classes", t + "." + Array.prototype.map.call(node.classList, cssEscape).join("."), "css");
     add("CSS · path", cssPath(node, doc), "css");
+
+    out.forEach((c) => (c.score = scoreCandidate(c)));
+
+    // indexed variant to guarantee a working unique locator from the best near-miss
+    const near = out.filter((c) => c.kind === "xpath" && c.count > 1 && !/^\/html/.test(c.value)).sort((a, b) => b.score - a.score)[0];
+    if (near) {
+      const idx = xpIndexOf(doc, near.value, node);
+      if (idx > 0) { const v = "(" + near.value + ")[" + idx + "]"; if (!seen[v]) { const c = { label: near.label + " · indexed", value: v, kind: "xpath", count: xpCount(doc, v) }; c.score = scoreCandidate(c) + 6; out.push(c); } }
+    }
+
+    out.sort((a, b) => b.score - a.score);
     return out;
   }
 
@@ -404,22 +495,24 @@
     selList.innerHTML = "";
     if (!doc) { selEmpty.style.display = ""; selEmpty.innerHTML = noAccessMsg(); return; }
 
-    // element info
     const info = el("div", "sel-el");
     let head = "<b>&lt;" + tagName(node) + "&gt;</b>";
     if (node.id) head += '<span class="pill">#' + esc(node.id) + "</span>";
     if (node.classList) Array.prototype.forEach.call(node.classList, (c) => (head += '<span class="pill cls">.' + esc(c) + "</span>"));
     info.innerHTML = head;
-    const txt = (node.textContent || "").trim().replace(/\s+/g, " ");
+    const txt = allText(node);
     if (txt) { const tt = el("div", "sel-text"); tt.textContent = '“' + (txt.length > 80 ? txt.slice(0, 80) + "…" : txt) + '”'; info.appendChild(tt); }
     selInfo.appendChild(info);
 
-    // candidates
-    buildCandidates(node, doc).forEach((c) => {
-      const item = el("div", "sel-item");
+    const cands = buildCandidates(node, doc);
+    const recommended = cands.find((c) => c.kind === "xpath" && c.count === 1) || cands[0];
+
+    cands.forEach((c) => {
+      const item = el("div", "sel-item" + (c === recommended ? " recommended" : ""));
       const badge = c.count === 1 ? '<span class="badge ok">unique</span>' : c.count < 0 ? '<span class="badge warn">invalid</span>' : '<span class="badge warn">' + c.count + " matches</span>";
+      const star = c === recommended ? '<span class="rec-star">★ Recommended</span>' : "";
       item.innerHTML =
-        '<div class="sel-row"><span class="sel-label">' + esc(c.label) + "</span>" + badge +
+        '<div class="sel-row"><span class="sel-label">' + esc(c.label) + "</span>" + star + badge +
         '<button class="sel-copy" title="Copy">Copy</button></div>' +
         '<code class="sel-val"></code>';
       item.querySelector(".sel-val").textContent = c.value;
