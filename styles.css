@@ -79,12 +79,11 @@ code { font-family: "JetBrains Mono", monospace; font-size: .85em; }
 .brand { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
 .brand-logo {
   width: 36px; height: 36px;
-  display: grid; place-items: center;
   border-radius: 10px;
-  background: linear-gradient(135deg, var(--primary), var(--accent));
-  color: #fff;
+  overflow: hidden;
   box-shadow: 0 4px 12px rgba(109,74,255,.35);
 }
+.brand-logo img { display: block; width: 100%; height: 100%; }
 .brand-text { display: flex; flex-direction: column; line-height: 1.1; }
 .brand-name { font-weight: 700; font-size: 15px; letter-spacing: -.2px; }
 .brand-name b { color: var(--primary); font-weight: 800; }

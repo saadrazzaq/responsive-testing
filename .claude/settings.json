@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(xxd)",
+      "Bash(cp /tmp/icon.png \"d:/Personal Work/responsive/_iconpreview.png\" 2>/dev/null && echo \"copied\")"
+    ],
+    "additionalDirectories": [
+      "\\tmp"
+    ]
+  }
+}

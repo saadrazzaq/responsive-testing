@@ -1,4 +1,6 @@
-# ResponsiveQA — Device & Breakpoint Tester
+<p align="center"><img src="icon.svg" width="84" height="84" alt="QALens" /></p>
+
+# QALens — Responsive Testing & Inspector
 
 > Engineered by **Muhammad Saad Razzaq**
 

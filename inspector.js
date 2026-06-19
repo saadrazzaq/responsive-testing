@@ -1,5 +1,5 @@
 /* ============================================================
-   ResponsiveQA — Inspector
+   QALens — Inspector
    Network monitor · Elements tree · XPath / CSS selector generator
    Works when the previewed page is same-origin (Proxy: On), so the
    tool can read the iframe DOM and receive its network events.

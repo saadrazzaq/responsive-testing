@@ -1,5 +1,5 @@
 @echo off
-REM ===== ResponsiveQA launcher =====
+REM ===== QALens launcher =====
 REM Starts the reverse proxy (if needed) and opens the tool from the proxy
 REM origin (http://localhost:8090/__app/) so cookies/data routing work.
 
@@ -10,8 +10,8 @@ netstat -ano | findstr ":8090" | findstr "LISTENING" >nul 2>&1
 if %errorlevel%==0 (
   echo Proxy already running on port 8090 - reusing it.
 ) else (
-  echo Starting ResponsiveQA proxy...
-  start "ResponsiveQA Proxy" cmd /k node proxy.js
+  echo Starting QALens proxy...
+  start "QALens Proxy" cmd /k node proxy.js
 )
 
 REM Wait until the proxy answers its health check (up to ~10s).
@@ -29,7 +29,7 @@ echo Opening the tester...
 start "" "http://localhost:8090/__app/"
 
 echo.
-echo ResponsiveQA is ready at  http://localhost:8090/__app/
+echo QALens is ready at  http://localhost:8090/__app/
 echo  - Keep the proxy window open while testing.
 echo  - Click "Proxy: Off" to turn it On, then load any site.
 echo.

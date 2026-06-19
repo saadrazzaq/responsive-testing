@@ -1,5 +1,5 @@
 /* ============================================================
-   ResponsiveQA — local same-origin reverse proxy
+   QALens — local same-origin reverse proxy
    ------------------------------------------------------------
    Two problems stop sites loading in an <iframe>:
 
@@ -203,7 +203,7 @@ function proxyRequest(clientReq, clientRes, targetUrl, bodyBuf, redirects, cooki
 // registration and remove any already-installed ones for this origin.
 const SW_KILLER =
   "<script>(function(){try{if(navigator.serviceWorker){" +
-  "navigator.serviceWorker.register=function(){return Promise.reject(new Error('sw disabled by ResponsiveQA'))};" +
+  "navigator.serviceWorker.register=function(){return Promise.reject(new Error('sw disabled by QALens'))};" +
   "if(navigator.serviceWorker.getRegistrations){navigator.serviceWorker.getRegistrations().then(function(rs){rs.forEach(function(r){r.unregister()})}).catch(function(){})}" +
   "}}catch(e){}})();</script>";
 
@@ -333,7 +333,7 @@ const server = http.createServer((req, res) => {
   // Health check used by the tool's Proxy toggle.
   if (pathname === "/__rqa/health") {
     res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
-    return res.end('{"ok":true,"service":"responsiveqa-proxy","mode":"reverse"}');
+    return res.end('{"ok":true,"service":"qalens-proxy","mode":"reverse"}');
   }
 
   // Entry point: remember the target origin, then redirect into it.
@@ -372,7 +372,7 @@ const server = http.createServer((req, res) => {
 
 server.on("error", (err) => {
   if (err.code === "EADDRINUSE") {
-    console.log("\n  A ResponsiveQA proxy is already running on port " + PORT + ".");
+    console.log("\n  A QALens proxy is already running on port " + PORT + ".");
     console.log("  You don't need to start another one — just use the tool.");
     console.log("  (To use a different port: set PORT, e.g.  set PORT=8091 && node proxy.js)\n");
   } else {
@@ -392,7 +392,7 @@ function openBrowser(url) {
 
 server.listen(PORT, () => {
   const url = "http://localhost:" + PORT + "/__app/";
-  console.log("\n  ResponsiveQA reverse proxy running");
+  console.log("\n  QALens reverse proxy running");
   console.log("  Open the tool:  " + url);
   console.log("  Routes the page AND its data calls through localhost so SPAs load.");
   console.log("  Keep this window open while testing. Press Ctrl+C to stop.");

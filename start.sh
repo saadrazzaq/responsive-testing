@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# ===== ResponsiveQA launcher (macOS / Linux) =====
+# ===== QALens launcher (macOS / Linux) =====
 # Starts the reverse proxy (if not already running) and opens the tool
 # from the proxy origin (http://localhost:8090/__app/) so cookies/data work.
 
@@ -26,6 +26,6 @@ if curl -fsS -o /dev/null "$HEALTH" 2>/dev/null; then
   exit 0
 fi
 
-echo "Starting ResponsiveQA proxy…  (Ctrl+C to stop)"
+echo "Starting QALens proxy…  (Ctrl+C to stop)"
 # --open makes the proxy open the browser once it is listening.
 exec node proxy.js --open
