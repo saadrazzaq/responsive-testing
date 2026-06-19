@@ -36,6 +36,7 @@ const https = require("https");
 const zlib  = require("zlib");
 const fs    = require("fs");
 const path  = require("path");
+const { spawn } = require("child_process");
 const { URL } = require("url");
 
 const PORT = process.env.PORT || 8090;
@@ -380,8 +381,21 @@ server.on("error", (err) => {
   process.exit(0);
 });
 
+// Cross-platform "open this URL in the default browser" (Windows/macOS/Linux).
+function openBrowser(url) {
+  try {
+    if (process.platform === "win32") spawn("cmd", ["/c", "start", "", url], { detached: true, stdio: "ignore" }).unref();
+    else if (process.platform === "darwin") spawn("open", [url], { detached: true, stdio: "ignore" }).unref();
+    else spawn("xdg-open", [url], { detached: true, stdio: "ignore" }).unref();
+  } catch (e) { /* opening is best-effort */ }
+}
+
 server.listen(PORT, () => {
-  console.log("\n  ResponsiveQA reverse proxy running:  http://localhost:" + PORT);
+  const url = "http://localhost:" + PORT + "/__app/";
+  console.log("\n  ResponsiveQA reverse proxy running");
+  console.log("  Open the tool:  " + url);
   console.log("  Routes the page AND its data calls through localhost so SPAs load.");
-  console.log("  Keep this window open while testing. Press Ctrl+C to stop.\n");
+  console.log("  Keep this window open while testing. Press Ctrl+C to stop.");
+  console.log("  Engineered by Muhammad Saad Razzaq\n");
+  if (process.argv.includes("--open")) openBrowser(url);
 });

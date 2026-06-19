@@ -1,8 +1,10 @@
 # ResponsiveQA — Device & Breakpoint Tester
 
+> Engineered by **Muhammad Saad Razzaq**
+
 A lightweight, zero-install tool that helps SQA testers verify how an application
 responds across modern devices and common resolutions. Just open `index.html` in a
-browser — no build step, no dependencies.
+browser — no build step, no dependencies. Runs on **Windows, macOS and Linux**.
 
 ## Quick start
 
@@ -80,12 +82,16 @@ to itself: framing headers are stripped and data loads normally.
 
 ### How to use it
 
-1. **Double-click `start.cmd`** — it starts the proxy and opens the tool.
-   (Or run `node proxy.js` in this folder and open `index.html` yourself.)
-2. In the toolbar, click **`Proxy: Off`** so it turns **`Proxy: On`** (green).
-3. Type any URL and hit **Load** — sites that previously refused now render.
+The proxy is plain **Node.js**, so it runs on **Windows, macOS and Linux**.
 
-Leave the small proxy console window open while you test.
+- **Windows** — double-click **`start.cmd`**.
+- **macOS / Linux** — run **`bash start.sh`** (or `chmod +x start.sh && ./start.sh`).
+- **Any OS, manually** — run **`node proxy.js --open`** in this folder.
+
+Each of these starts the proxy and opens the tool at
+`http://localhost:8090/__app/`. Then in the toolbar click **`Proxy: Off`** so it
+turns **`Proxy: On`** (green), type any URL and hit **Load** — sites that
+previously refused now render. Leave the proxy terminal/window open while testing.
 
 ### What works / what doesn't through the proxy
 
@@ -116,7 +122,8 @@ The proxy is mainly for third-party / production sites that lock down framing.
 | `demo.html` | Sample responsive page for trying the tool |
 | `inspector.js` | Network monitor, DOM tree, element picker & selector generator |
 | `proxy.js` | Local proxy that unblocks sites which refuse to be framed |
-| `start.cmd` | One-click launcher: starts the proxy + opens the tool (Windows) |
+| `start.cmd` | One-click launcher (Windows) |
+| `start.sh` | One-command launcher (macOS / Linux) |
 
 ## Adding your own devices
 

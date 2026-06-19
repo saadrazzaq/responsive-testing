@@ -449,6 +449,8 @@ code { font-family: "JetBrains Mono", monospace; font-size: .85em; }
 }
 .status-chip.muted { color: var(--text-3); font-family: "Inter", sans-serif; font-weight: 500; }
 .status-hint { color: var(--text-3); font-size: 11.5px; }
+.status-credit { color: var(--text-3); font-size: 11.5px; padding-left: 14px; margin-left: 14px; border-left: 1px solid var(--border); }
+.status-credit b { color: var(--text-2); font-weight: 600; }
 
 /* ===================== INSPECTOR PANEL ===================== */
 .devpanel {
@@ -585,7 +587,7 @@ code { font-family: "JetBrains Mono", monospace; font-size: .85em; }
 .sel-val { display: block; font-family: "JetBrains Mono", monospace; font-size: 11px; color: var(--text); background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 7px 9px; word-break: break-all; line-height: 1.45; }
 
 @media (max-width: 920px) {
-  .brand-text, .status-right { display: none; }
+  .brand-text, .status-hint { display: none; }
   .toolbar { overflow-x: auto; }
   .devpanel { width: 320px; }
 }
