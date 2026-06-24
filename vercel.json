@@ -1,0 +1,11 @@
+{
+  "functions": {
+    "api/proxy.js": {
+      "includeFiles": "{index.html,app.js,styles.css,devices.js,inspector.js,demo.html,icon.svg}",
+      "maxDuration": 30
+    }
+  },
+  "routes": [
+    { "src": "/(.*)", "dest": "/api/proxy" }
+  ]
+}

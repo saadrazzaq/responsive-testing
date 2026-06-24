@@ -113,6 +113,41 @@ When testing your own application on `localhost` or a staging URL you control, i
 typically doesn't send framing-blocker headers, so it loads **without** the proxy.
 The proxy is mainly for third-party / production sites that lock down framing.
 
+## Deploying to the web (Vercel)
+
+The tool can run as a hosted app at a `*.vercel.app` URL. The static UI and the
+proxy are both served by a single serverless function ([api/proxy.js](api/proxy.js)),
+configured by [vercel.json](vercel.json) — so **Proxy: On works on the deployed
+URL too**, not just locally.
+
+**Deploy**
+
+- **Dashboard** — import the repo at [vercel.com/new](https://vercel.com/new). Set
+  **Root Directory** to `responsive-testing` (this folder). No build command, no
+  framework — it's a plain function + static files.
+- **CLI** — from this folder: `npm i -g vercel` then `vercel` (and `vercel --prod`).
+
+Once deployed, open `https://<your-app>.vercel.app/` — it redirects to the tool at
+`/__app/`. Click **Proxy: Off → On** and load any URL.
+
+> ⚠️ **Security — read before deploying publicly.** A hosted proxy that strips
+> framing headers and forwards cookies for *any* target is effectively an **open
+> proxy**, which can be abused by others and means traffic for sites you test
+> passes through your deployment. Mitigations baked in:
+> - A built-in **SSRF guard** refuses loopback / private / link-local /
+>   cloud-metadata targets (set `RQA_ALLOW_PRIVATE=1` to disable). It matches the
+>   literal hostname only — it does **not** resolve DNS, so it is not a complete
+>   SSRF defense.
+> - Because Vercel functions can't reach your machine, **testing your own
+>   `localhost` won't work on the hosted version** — use the local proxy for that.
+>
+> For anything beyond personal use, put the deployment behind access control
+> (e.g. Vercel password protection / auth) rather than leaving it open.
+
+Note: serverless functions have response-size and execution-time limits (the
+function is capped at `maxDuration: 30`s), so very large downloads or slow sites
+may fail on the hosted version where they'd succeed under the local proxy.
+
 ## Files
 
 | File | Purpose |
@@ -124,6 +159,8 @@ The proxy is mainly for third-party / production sites that lock down framing.
 | `demo.html` | Sample responsive page for trying the tool |
 | `inspector.js` | Network monitor, DOM tree, element picker & selector generator |
 | `proxy.js` | Local proxy that unblocks sites which refuse to be framed |
+| `api/proxy.js` | Same proxy as a Vercel serverless function (hosted deploys) |
+| `vercel.json` | Vercel config — routes all traffic through the function |
 | `start.cmd` | One-click launcher (Windows) |
 | `start.sh` | One-command launcher (macOS / Linux) |
 

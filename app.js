@@ -29,12 +29,16 @@
     proxy: false,
   };
 
-  // When the tool is served BY the proxy (http://localhost:8090/__app/), use
-  // same-origin relative URLs so the proxy's cookie is first-party and flows
-  // back. If opened from file:// instead, fall back to the absolute origin
-  // (the proxy still strips framing, but cookie-based data routing won't work —
-  // the tool warns about this when proxy mode is enabled).
-  const SERVED_BY_PROXY = /^https?:\/\/(localhost|127\.0\.0\.1):8090$/.test(location.origin);
+  // When the tool is served BY the proxy, use same-origin relative URLs so the
+  // proxy's cookie is first-party and flows back. This is true both locally
+  // (http://localhost:8090/__app/) and when deployed to Vercel, where the same
+  // serverless function serves the UI under /__app/ and handles /__rqa/*.
+  // If opened from file:// instead, fall back to the local proxy origin (the
+  // proxy still strips framing, but cookie-based data routing won't work — the
+  // tool warns about this when proxy mode is enabled).
+  const SERVED_BY_PROXY =
+    /^https?:\/\/(localhost|127\.0\.0\.1):8090$/.test(location.origin) ||
+    /^\/__app(\/|$)/.test(location.pathname);
   const PROXY_BASE = SERVED_BY_PROXY ? "" : "http://localhost:8090";
 
   // ---------- DOM ----------
@@ -267,11 +271,12 @@
   function fitZoom() {
     // available area inside stage (minus padding)
     const stageW = el.stage.clientWidth - 48 - 24;          // side padding + handle room
-    const stageH = el.stage.clientHeight - (state.ruler ? 34 : 0) - 60; // ruler + meta + margins
     const zw = stageW / state.width;
-    const zh = stageH / state.height;
-    let z = Math.min(zw, zh, 1);          // never upscale past 100% automatically
-    z = Math.max(z, 0.2);
+    // Fit to WIDTH so the preview fills the available horizontal space — taller
+    // frames simply scroll vertically (the stage is overflow:auto). This keeps
+    // landscape laptops near 100% and shows phones/tablets at real size, instead
+    // of shrinking everything to fit the (usually short) stage height.
+    const z = clamp(zw, 0.2, 1);   // never upscale past 100% automatically
     return Math.round(z * 100) / 100;
   }
 
