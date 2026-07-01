@@ -27,6 +27,10 @@
     gallery: false,
     notch: false,
     proxy: false,
+    // Device identity presented to the preview (User-Agent, DPR, touch…).
+    // Applied to proxied content so responsiveness matches the real device,
+    // not just the CSS width. Defaults to "no emulation" (desktop).
+    profile: { name: "MacBook Air 13\"", w: 1280, h: 800, dpr: 2, ua: null, platform: null, uaPlatform: null, mobile: false, touch: false },
   };
 
   // When the tool is served BY the proxy, use same-origin relative URLs so the
@@ -57,6 +61,7 @@
     framePlaceholder: $("framePlaceholder"),
     metaName: $("metaName"), metaDim: $("metaDim"), metaBp: $("metaBp"),
     statusDim: $("statusDim"), statusBp: $("statusBp"), statusDpr: $("statusDpr"),
+    statusEmu: $("statusEmu"),
   };
 
   // ============================================================
@@ -91,6 +96,15 @@
     if (state.gallery) renderGallery();
   }
 
+  // Hard-reload the preview (about:blank → src) so a proxied page is re-fetched
+  // with the current device's User-Agent + emulation shim applied.
+  function reloadFrame() {
+    if (!state.url) return;
+    el.previewFrame.src = "about:blank";
+    requestAnimationFrame(() => { el.previewFrame.src = frameSrc(state.url); });
+    if (state.gallery) renderGallery();
+  }
+
   el.urlForm.addEventListener("submit", (e) => {
     e.preventDefault();
     loadUrl(el.urlInput.value);
@@ -102,12 +116,7 @@
     loadUrl("demo.html");
   });
 
-  el.reloadBtn.addEventListener("click", () => {
-    if (!state.url) return;
-    el.previewFrame.src = "about:blank";
-    requestAnimationFrame(() => { el.previewFrame.src = frameSrc(state.url); });
-    if (state.gallery) renderGallery();
-  });
+  el.reloadBtn.addEventListener("click", reloadFrame);
 
   // ============================================================
   //  Proxy toggle (bypass X-Frame-Options / CSP framing blocks)
@@ -162,11 +171,10 @@
       state.proxy = false;
     }
     setProxyVisual();
-    if (state.url) {
-      el.previewFrame.src = "about:blank";
-      requestAnimationFrame(() => { el.previewFrame.src = frameSrc(state.url); });
-      if (state.gallery) renderGallery();
-    }
+    // Emulation fidelity depends on the proxy (it applies the device UA + shim),
+    // so refresh the status hint and re-fetch the page through the new path.
+    updateEmulationStatus(state.profile);
+    if (state.url) reloadFrame();
   });
 
   // ============================================================
@@ -233,8 +241,10 @@
     state.dpr = d.dpr || 1;
     state.notch = !!d.notch;
     state.autoZoom = true;
+    state.profile = deviceProfile(d, state.category);
     renderDeviceStrip();
     applyViewport();
+    applyEmulation();
   }
 
   // ============================================================
@@ -251,16 +261,22 @@
     state.width = w; state.height = h;
     state.name = "Custom";
     state.autoZoom = true;
+    // Keep the last device's identity (UA/DPR/touch) — a custom width is still
+    // "this device at width X", and it avoids a surprising UA reset + reload.
+    state.profile = { ...state.profile, name: "Custom", w, h };
     renderDeviceStrip();
     applyViewport();
+    applyEmulation();
   }
   el.widthInput.addEventListener("change", onDimChange);
   el.heightInput.addEventListener("change", onDimChange);
 
   el.swapBtn.addEventListener("click", () => {
     [state.width, state.height] = [state.height, state.width];
+    state.profile.w = state.width; state.profile.h = state.height;
     state.autoZoom = true;
     applyViewport();
+    applyEmulation();   // orientation keeps the device identity (no reload)
   });
 
   function clamp(v, lo, hi) { return Math.min(hi, Math.max(lo, v)); }
@@ -351,6 +367,74 @@
   }
 
   // ============================================================
+  //  Device emulation (User-Agent · DPR · touch)
+  //  Width is emulated by the frame size; these carry the rest of
+  //  the device identity to the preview via a shared-origin cookie
+  //  that the proxy reads to (a) spoof the request User-Agent and
+  //  (b) inject a shim overriding navigator/devicePixelRatio/
+  //  matchMedia. Requires Proxy: On for cross-origin targets.
+  // ============================================================
+  let lastEmuKey = null;
+
+  function emuPayload(p) {
+    return {
+      name: p.name, w: p.w, h: p.h, dpr: p.dpr,
+      ua: p.ua, platform: p.platform, uaPlatform: p.uaPlatform,
+      mobile: !!p.mobile, touch: !!p.touch,
+    };
+  }
+
+  // Only the identity fields (not w/h) decide whether a reload is needed.
+  function emuKey(p) {
+    return [p.ua || "", p.dpr, p.mobile ? 1 : 0, p.touch ? 1 : 0, p.platform || ""].join("|");
+  }
+
+  function persistDevice(p) {
+    const json = JSON.stringify(emuPayload(p));
+    try { localStorage.setItem("rqa-device", json); } catch (e) {}
+    // Cookie is same-origin with the proxy, so it rides along on frame requests.
+    try { document.cookie = "__rqa_dev=" + encodeURIComponent(json) + "; path=/; SameSite=Lax"; } catch (e) {}
+  }
+
+  function applyEmulation() {
+    const p = state.profile;
+    persistDevice(p);
+    updateEmulationStatus(p);
+    const key = emuKey(p);
+    const changed = key !== lastEmuKey;
+    lastEmuKey = key;
+    // The device UA + shim are applied server-side by the proxy, so they only
+    // take effect on a re-fetch — and only when proxied. Reload just when the
+    // identity actually changed (not on orientation swaps or plain resizes).
+    if (changed && state.url && state.proxy) reloadFrame();
+  }
+
+  function updateEmulationStatus(p) {
+    if (!el.statusEmu) return;
+    const wantsEmu = !!(p && (p.ua || p.touch || (p.dpr && p.dpr !== 1)));
+    if (!wantsEmu) {
+      el.statusEmu.textContent = "Emulation: desktop UA";
+      el.statusEmu.className = "status-chip muted";
+      el.statusEmu.title = "Laptop/desktop devices use your real browser identity.";
+      return;
+    }
+    const bits = [];
+    if (p.uaPlatform || p.ua) bits.push(p.uaPlatform || "device UA");
+    if (p.touch) bits.push("touch");
+    if (p.dpr && p.dpr !== 1) bits.push("DPR " + p.dpr);
+    const label = bits.join(" · ");
+    if (state.proxy) {
+      el.statusEmu.textContent = "Emulating: " + label;
+      el.statusEmu.className = "status-chip emu-on";
+      el.statusEmu.title = "The preview presents this device's User-Agent, touch and DPR to the page.";
+    } else {
+      el.statusEmu.textContent = "Turn Proxy On to emulate " + label;
+      el.statusEmu.className = "status-chip emu-warn";
+      el.statusEmu.title = "Cross-origin pages can only be given a device User-Agent / touch / DPR through the proxy. Without it, only the CSS width is emulated.";
+    }
+  }
+
+  // ============================================================
   //  Ruler
   // ============================================================
   let rulerTrack, rulerCursor;
@@ -409,6 +493,8 @@
     el.deviceFrame.classList.remove("resizing");
     window.removeEventListener("mousemove", onDrag);
     window.removeEventListener("mouseup", endDrag);
+    state.profile = { ...state.profile, name: "Custom", w: state.width, h: state.height };
+    applyEmulation();
   }
   document.querySelectorAll(".handle").forEach((h) => {
     h.addEventListener("mousedown", (e) => startDrag(h.dataset.dir, e));
@@ -483,6 +569,9 @@
     renderDeviceStrip();
     buildRuler();
     syncInputs();
+    persistDevice(state.profile);      // seed the cookie so the first load is emulated
+    updateEmulationStatus(state.profile);
+    lastEmuKey = emuKey(state.profile);
     requestAnimationFrame(() => applyViewport());
     el.urlInput.focus();
   }

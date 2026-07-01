@@ -19,6 +19,11 @@ browser — no build step, no dependencies. Runs on **Windows, macOS and Linux**
 
 - **Device presets** — current iPhones, Pixels, Galaxy, iPads, Surface, MacBooks,
   and standard desktop resolutions (1080p, 1440p, 4K), grouped by category.
+- **True device emulation** — beyond CSS width, picking a device also presents its
+  **User-Agent**, **device-pixel-ratio**, and **touch / `pointer: coarse` / `hover`**
+  traits to the page, so UA-sniffing sites and touch-only layouts render like the real
+  device (see [Device emulation](#device-emulation-more-than-css-width) — needs
+  **Proxy: On** for cross-origin apps).
 - **Drag-to-resize** — grab the right, bottom, or corner handle to test any width.
   The active breakpoint updates live.
 - **Breakpoint ruler** — common CSS breakpoints (320 → 1920) with a colored cursor
@@ -55,6 +60,35 @@ already served from the tool's origin).
 Each candidate shows a **unique** badge (matches exactly one element — safe to
 automate) or **N matches** (ambiguous), and ranks by robustness so the cleanest,
 most stable locator is at the top with one-click **Copy**.
+
+## Device emulation (more than CSS width)
+
+Resizing the frame changes the viewport width, which is what most `@media (width…)`
+rules react to. But a real device differs in more ways, and sites often branch on them:
+
+| Trait | What it drives | Emulated |
+|-------|----------------|----------|
+| Viewport **width** | `@media (min/max-width)` layout | ✅ always (frame size) |
+| **User-Agent** + client hints | server/JS device detection, `navigator.userAgentData.mobile` | ✅ with Proxy On |
+| **Device-pixel-ratio** | `window.devicePixelRatio`, `@media (resolution)` via `matchMedia` | ✅ with Proxy On |
+| **Touch / pointer** | `navigator.maxTouchPoints`, `@media (pointer: coarse)`, `(hover: none)` | ✅ with Proxy On |
+
+When you pick a device, the tool records that device's identity and — through the proxy
+— **spoofs the request User-Agent** and **injects a tiny shim** that overrides
+`devicePixelRatio`, `navigator.userAgent`/`userAgentData`, `maxTouchPoints`, and
+resolution/pointer/hover `matchMedia` results. That's why a phone preset can flip a
+UA-sniffing or touch-only site to its mobile UI instead of showing the desktop layout.
+
+**This needs `Proxy: On`.** Your own app on `localhost:3000` is a *different origin*
+from the tool, and browser security forbids a page from changing another origin's
+User-Agent, DPR, or touch traits. The proxy makes the target same-origin, which is the
+only way a pure-web tool can apply these. The status bar tells you the current state:
+**"Emulating: iOS · touch · DPR 2"** (green, active) or **"Turn Proxy On to emulate …"**
+(amber). Laptop/desktop presets keep your real browser identity by design.
+
+> One honest gap: CSS-level `image-set()` / `<img srcset>` selection and canvas
+> backing-store resolution use the *host* monitor's real pixel ratio — a page cannot
+> override those. Everything JS- and `matchMedia`-visible is emulated.
 
 ## Keyboard shortcuts
 

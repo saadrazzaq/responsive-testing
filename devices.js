@@ -84,3 +84,50 @@ function breakpointFor(width) {
   for (const bp of BREAKPOINTS) if (width >= bp.min) match = bp;
   return match;
 }
+
+// ============================================================
+//  Device emulation profiles
+//  Beyond CSS width, real responsiveness depends on the device's
+//  User-Agent, device-pixel-ratio, and touch/pointer traits. These
+//  templates describe the "identity" the preview should present so
+//  UA-sniffing sites, pointer:coarse layouts and DPR logic match the
+//  real device instead of always showing the desktop UI.
+// ============================================================
+const UA_TEMPLATES = {
+  ios:        "Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1",
+  ipados:     "Mozilla/5.0 (iPad; CPU OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1",
+  android:    "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Mobile Safari/537.36",
+  androidTab: "Mozilla/5.0 (Linux; Android 14; SM-X710) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
+};
+
+// Build the emulation identity for a device in a given category.
+// ua === null  → keep the browser's real (desktop) User-Agent.
+function deviceProfile(d, categoryId) {
+  const name = (d.name || "").toLowerCase();
+  const p = {
+    name: d.name, w: d.w, h: d.h, dpr: d.dpr || 1,
+    ua: null, platform: null, uaPlatform: null,
+    mobile: false, touch: false,
+  };
+
+  if (categoryId === "mobile") {
+    p.mobile = true; p.touch = true;
+    if (name.includes("iphone")) {
+      p.ua = UA_TEMPLATES.ios; p.platform = "iPhone"; p.uaPlatform = "iOS";
+    } else {
+      p.ua = UA_TEMPLATES.android; p.platform = "Linux armv8l"; p.uaPlatform = "Android";
+    }
+  } else if (categoryId === "tablet") {
+    p.touch = true; // tablets are touch, but report as non-mobile (desktop-class)
+    if (name.includes("ipad")) {
+      p.ua = UA_TEMPLATES.ipados; p.platform = "iPad"; p.uaPlatform = "iOS";
+    } else if (name.includes("surface")) {
+      // Windows touch device — keep desktop UA, just flag touch.
+      p.ua = null; p.uaPlatform = "Windows";
+    } else {
+      p.ua = UA_TEMPLATES.androidTab; p.platform = "Linux armv8l"; p.uaPlatform = "Android";
+    }
+  }
+  // laptop / desktop → real desktop UA, no touch (defaults above)
+  return p;
+}

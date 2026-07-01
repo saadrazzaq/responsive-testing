@@ -43,6 +43,7 @@ const PORT = process.env.PORT || 8090;
 const MAX_REDIRECTS = 6;
 const TIMEOUT_MS = 25000;
 const COOKIE = "__rqa_target";
+const DEV_COOKIE = "__rqa_dev";   // carries the selected device's emulation profile
 
 // Response headers that block framing / embedding — never forward these.
 const STRIP_RES = new Set([
@@ -109,6 +110,9 @@ function proxyRequest(clientReq, clientRes, targetUrl, bodyBuf, redirects, cooki
 
   const lib = u.protocol === "https:" ? https : http;
 
+  // Selected device emulation profile (User-Agent, DPR, touch…), if any.
+  const dev = readDevProfile(clientReq.headers.cookie);
+
   // Build upstream headers from the client's, fixing host & cookies.
   const headers = {};
   for (const [k, v] of Object.entries(clientReq.headers)) {
@@ -118,10 +122,20 @@ function proxyRequest(clientReq, clientRes, targetUrl, bodyBuf, redirects, cooki
   }
   headers["host"] = u.host;
   headers["accept-encoding"] = "gzip, deflate, br";
-  // Strip our own bookkeeping cookie before forwarding the rest to the site.
+
+  // Spoof the device identity so server-side detection serves the mobile/tablet
+  // markup instead of desktop. Overwrite case-insensitively to avoid duplicates.
+  if (dev && dev.ua) setHeader(headers, "user-agent", dev.ua);
+  if (dev) {
+    setHeader(headers, "sec-ch-ua-mobile", dev.mobile ? "?1" : "?0");
+    if (dev.uaPlatform) setHeader(headers, "sec-ch-ua-platform", '"' + dev.uaPlatform + '"');
+  }
+
+  // Strip our own bookkeeping cookies before forwarding the rest to the site.
   if (clientReq.headers.cookie) {
     const kept = clientReq.headers.cookie
-      .split(";").map((s) => s.trim()).filter((s) => s && !s.startsWith(COOKIE + "="));
+      .split(";").map((s) => s.trim())
+      .filter((s) => s && !s.startsWith(COOKIE + "=") && !s.startsWith(DEV_COOKIE + "="));
     if (kept.length) headers["cookie"] = kept.join("; "); else delete headers["cookie"];
   }
   if (bodyBuf && bodyBuf.length) headers["content-length"] = bodyBuf.length;
@@ -179,7 +193,7 @@ function proxyRequest(clientReq, clientRes, targetUrl, bodyBuf, redirects, cooki
           // For HTML, neutralize service workers so a proxied PWA (YouTube,
           // etc.) can't install one on localhost and hijack navigations into
           // a redirect loop.
-          if (/text\/html/i.test(ct)) text = injectClientScripts(text);
+          if (/text\/html/i.test(ct)) text = injectClientScripts(text, dev);
           clientRes.writeHead(upRes.statusCode, outHeaders);
           clientRes.end(text);
         });
@@ -263,11 +277,77 @@ const NET_MONITOR = "<script>(" + (function () {
   }
 }).toString() + ")();</script>";
 
-function injectClientScripts(html) {
-  const inject = SW_KILLER + NET_MONITOR;
+// Device-emulation shim. Runs before the page's own scripts so a proxied app
+// sees the *selected device's* identity: device-pixel-ratio, User-Agent,
+// touch/pointer traits and DPR/pointer/hover media queries — the JS-visible
+// side of "what device am I on?". (Width is already emulated by the frame size;
+// CSS srcset/backing-store DPR can't be overridden from a page and are the one
+// gap versus real hardware.)
+const EMU_SHIM = "(" + (function () {
+  var d = window.__rqaDev; if (!d) return;
+  function def(obj, prop, val) { try { Object.defineProperty(obj, prop, { get: function () { return val; }, configurable: true }); } catch (e) {} }
+  try {
+    if (d.dpr) def(window, "devicePixelRatio", d.dpr);
+    if (d.ua) { def(navigator, "userAgent", d.ua); def(navigator, "appVersion", d.ua.replace(/^Mozilla\//, "")); }
+    if (d.platform) def(navigator, "platform", d.platform);
+    // navigator.userAgentData (Chromium) — many "is mobile" checks read .mobile
+    try {
+      var uad = { mobile: !!d.mobile, platform: d.uaPlatform || "", brands: [],
+        getHighEntropyValues: function () { return Promise.resolve({ mobile: !!d.mobile, platform: d.uaPlatform || "" }); },
+        toJSON: function () { return { mobile: !!d.mobile, platform: d.uaPlatform || "", brands: [] }; } };
+      def(navigator, "userAgentData", uad);
+    } catch (e) {}
+    // Touch capability
+    def(navigator, "maxTouchPoints", d.touch ? 5 : 0);
+    if (d.touch && !("ontouchstart" in window)) { try { window.ontouchstart = null; } catch (e) {} }
+    // matchMedia: answer pointer/hover/resolution from the emulated device;
+    // leave width/height (already correct) and everything else to the browser.
+    var real = window.matchMedia ? window.matchMedia.bind(window) : null;
+    if (real) {
+      window.matchMedia = function (q) {
+        var s = String(q).toLowerCase(), coarse = !!d.touch, forced = null, m;
+        if (/pointer\s*:\s*coarse/.test(s)) forced = coarse;
+        else if (/pointer\s*:\s*fine/.test(s)) forced = !coarse;
+        else if (/hover\s*:\s*none/.test(s)) forced = coarse;
+        else if (/hover\s*:\s*hover/.test(s)) forced = !coarse;
+        else if ((m = s.match(/(min|max)-resolution\s*:\s*([\d.]+)dppx/))) forced = m[1] === "min" ? d.dpr >= +m[2] : d.dpr <= +m[2];
+        else if ((m = s.match(/(min|max)-resolution\s*:\s*([\d.]+)dpi/))) forced = m[1] === "min" ? d.dpr * 96 >= +m[2] : d.dpr * 96 <= +m[2];
+        else if ((m = s.match(/(min|max)-device-pixel-ratio\s*:\s*([\d.]+)/))) forced = m[1] === "min" ? d.dpr >= +m[2] : d.dpr <= +m[2];
+        if (forced === null) return real(q);
+        return { matches: forced, media: q, onchange: null,
+          addListener: function () {}, removeListener: function () {},
+          addEventListener: function () {}, removeEventListener: function () {}, dispatchEvent: function () { return false; } };
+      };
+    }
+  } catch (e) {}
+}).toString() + ")();";
+
+function deviceEmulationScript(dev) {
+  if (!dev) return "";
+  return "<script>window.__rqaDev=" + JSON.stringify(dev) + ";" + EMU_SHIM + "</script>";
+}
+
+function injectClientScripts(html, dev) {
+  const inject = SW_KILLER + deviceEmulationScript(dev) + NET_MONITOR;
   if (/<head[^>]*>/i.test(html)) return html.replace(/<head[^>]*>/i, (m) => m + inject);
   if (/<html[^>]*>/i.test(html)) return html.replace(/<html[^>]*>/i, (m) => m + inject);
   return inject + html;
+}
+
+// Case-insensitive header set: drop any existing variant, then set lowercase.
+function setHeader(headers, name, value) {
+  for (const k of Object.keys(headers)) if (k.toLowerCase() === name) delete headers[k];
+  headers[name] = value;
+}
+
+// Parse the device-emulation profile the tool stored in the __rqa_dev cookie.
+function readDevProfile(cookieHeader) {
+  const raw = parseCookies(cookieHeader)[DEV_COOKIE];
+  if (!raw) return null;
+  try {
+    const p = JSON.parse(decodeURIComponent(raw));
+    return (p && typeof p === "object") ? p : null;
+  } catch (e) { return null; }
 }
 
 // Make Set-Cookie usable on http://localhost (drop Domain/Secure/SameSite=None).
